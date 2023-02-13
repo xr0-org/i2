@@ -1,0 +1,76 @@
+type @nat(x);
+
+auto @one: 1 nat;
+
+func @succ(x nat) nat;
+
+@succ_notone: for (x nat) succ(x) != 1;
+
+@injectivity: for (x, y nat) succ(x) == succ(y) ==> x == y;
+
+@induction: for (π type(nat)) {
+	π(1) && for (x nat) { π(x) ==> π(succ(x)) }
+==>
+	for (x nat) π(x);
+};
+
+auto negeq: for (x, y) x != y === !(x == y);
+
+thm1_verbose: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{} ==> false {
+		!-this{}
+	=== 	(x, y nat) && (x != y) && !(succ(x) != succ(y))
+	==> { negeq with succ(x), succ(y) } ~ [2]
+		(x, y nat) && (x != y) && (succ(x) == succ(y))
+	==> { injectivity with x, y } ~ [0, 2]
+		(x == y) && (x != y)
+	=== { negeq with x, y } ~ [1]
+		(x == y) && !(x == y);
+	===	false;
+	}
+==>	this{};
+};
+
+/* auto applied with the variables, terms explicitly stated */
+thm1_auto0: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{} ==> false {
+		(x, y nat) && (x != y) && !(succ(x) != succ(y))
+	==> { auto with succ(x), succ(y) } ~ [2]
+		(x, y nat) && (x != y) && (succ(x) == succ(y))
+	==> { injectivity with x, y } ~ [0, 2]
+		(x == y) && (x != y)
+	=== { auto with x, y } ~ [1]
+		(x == y) && !(x == y);
+	};
+};
+
+/* auto applied with the terms explicitly stated */
+thm1_auto1: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{} ==> false {
+		(x, y nat) && (x != y) && !(succ(x) != succ(y))
+	==> { auto } ~ [2]
+		(x, y nat) && (x != y) && (succ(x) == succ(y))
+	==> { injectivity with x, y } ~ [0, 2]
+		(x == y) && (x != y)
+	=== { auto } ~ [1]
+		(x == y) && !(x == y);
+	};
+};
+
+/* auto applied to the correct terms implicitly */
+thm1_auto2: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{} ==> false {
+		(x, y nat) && (x != y) && (succ(x) == succ(y))
+	==> { injectivity with x, y } ~ [0, 2]
+		(x == y) && (x != y);
+	};
+};
+
+/* predicates of bound variables implicitly passed through */
+thm1_auto3: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{} ==> false {
+		(x != y) && (succ(x) == succ(y))
+	==> { injectivity with x, y } ~ [1]
+		(x == y) && (x != y);
+	};
+};
