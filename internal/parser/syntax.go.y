@@ -4,34 +4,41 @@
 	import (
 		"fmt"
 	)
+
+	type identifier struct {
+		s string
+		axiom bool
+	}
 %}
 
 %union{
-	val int
+	s	string
+	id	identifier
+	idlst	[]identifier
 }
 
-%type <val> expr term factor
+%type <id> identifier
+%type <idlst> identifier_list
 
-%token <val> tkNumber
+%token <s> tkId tkType
 
 %%
-line
-	: expr '\n'		{ fmt.Printf("%d\n", $1) }
+statements
+	: statement ';' statements
+	| /* empty */
 	;
 
-expr
-	: expr '+' term		{ $$ = $1 + $3 }
-	| expr '-' term		{ $$ = $1 - $3 }
-	| term
+statement
+	: tkType identifier '(' identifier_list ')'
+		{ fmt.Printf("type: %v %v\n", $2, $4) }
 	;
 
-term
-	: term '*' factor	{ $$ = $1 * $3 }
-	| term '/' factor	{ $$ = div($1, $3) }
-	| factor
+identifier_list
+	: identifier_list ',' identifier	{ $$ = append($1, $3) }
+	| identifier				{ $$ = []identifier{$1} }
 	;
 
-factor
-	: '(' expr ')'		{ $$ = $2 }
-	| tkNumber
+identifier
+	: tkId					{ $$ = identifier{$1, false} }
+	| '@' tkId				{ $$ = identifier{$2, true} }
 	;
