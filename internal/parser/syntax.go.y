@@ -13,6 +13,7 @@
 
 %union{
 	s	string
+	n	int
 	id	identifier
 	idlst	[]identifier
 }
@@ -20,7 +21,8 @@
 %type <id> identifier
 %type <idlst> identifier_list
 
-%token <s> tkId tkType
+%token <s> tkId tkType tkAuto tkFunc
+%token <n> tkNum
 
 %%
 statements
@@ -31,6 +33,8 @@ statements
 statement
 	: tkType identifier '(' identifier_list ')'
 		{ fmt.Printf("type: %v %v\n", $2, $4) }
+	| tkAuto identifier ':' tkNum identifier
+	| tkFunc identifier '(' identifier_list identifier ')' identifier
 	;
 
 identifier_list

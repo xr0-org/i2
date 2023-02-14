@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"unicode"
+	"strconv"
 )
 
 const (
@@ -26,7 +27,7 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return tkEof
 	}
 	lexers := []func([]rune, *yySymType) (*token, error){
-		lexPunct, lexString,
+		lexPunct, lexString, lexNum,
 	}
 	for _, lex := range lexers {
 		tk, err := lex(l.input[l.pos:], lval)
@@ -53,7 +54,7 @@ type token struct {
 
 func lexPunct(input []rune, lval *yySymType) (*token, error) {
 	switch c := input[0]; c {
-	case ';', '(', ')', '@', ',':
+	case ';', '(', ')', '@', ',', ':':
 		return &token{int(c), 1}, nil
 	default:
 		return nil, fmt.Errorf("unknown char '%c'", c)
@@ -62,6 +63,8 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 
 var keyword = map[string]int{
 	"type": tkType,
+	"auto": tkAuto,
+	"func": tkFunc,
 }
 
 func stringtype(s string) int {
@@ -85,3 +88,20 @@ func lexString(input []rune, lval *yySymType) (*token, error) {
 	lval.s = b.String()
 	return &token{stringtype(lval.s), len(lval.s)}, nil
 }
+
+func lexNum(input []rune, lval *yySymType) (*token, error) {
+	if c := input[0]; !(unicode.IsDigit(c)) {
+		return nil, fmt.Errorf("invalid number first char: '%c'", c)
+	}
+	var b strings.Builder
+	for n := 0; n < len(input) && unicode.IsDigit(input[n]); n++ {
+		b.WriteRune(input[n])	
+	}
+	val, err := strconv.Atoi(b.String())
+	if err != nil {
+		return nil, fmt.Errorf("could not parse int: '%s'", b.String())
+	}
+	lval.n = val
+	return &token{tkNum, len(fmt.Sprint(lval.n))}, nil
+}
+
