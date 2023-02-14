@@ -15,12 +15,15 @@ func @succ(x nat) nat;
 };
 
 auto negeq: for (x, y) x != y === !(x == y);
+auto dblneg: for (P) !!P == P;
 
 thm1_verbose: for (x, y nat) x != y ==> succ(x) != succ(y) {
 	!this{} ==> false {
 		!-this{}
 	=== 	(x, y nat) && (x != y) && !(succ(x) != succ(y))
-	==> { negeq with succ(x), succ(y) } ~ [2]
+	==> { negeq with succ(x), succ(y) } ~ [2][0]
+		(x, y nat) && (x != y) && !!(succ(x) == succ(y))
+	=== { dblneg with succ(x) == succ(y) } ~ [2]
 		(x, y nat) && (x != y) && (succ(x) == succ(y))
 	==> { injectivity with x, y } ~ [0, 2]
 		(x == y) && (x != y)
