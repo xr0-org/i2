@@ -1,79 +1,117 @@
-type @nat(x);
+@func nat(x) bool;
 
-auto @one: 1 nat;
+@auto one{}: 1 nat;
 
-func @succ(x nat) nat;
+@func succ(x nat) nat;
 
-@succ_notone: for (x nat) succ(x) != 1;
+@succ_notone{x}: x nat ==> succ(x) != 1;
 
-@injectivity: for (x, y nat) succ(x) == succ(y) ==> x == y;
+@injectivity{x, y}: x, y nat && succ(x) == succ(y) ==> x == y;
 
-@induction: for (π type(nat)) {
-	π(1) && for (x nat) { π(x) ==> π(succ(x)) }
-==>
-	for (x nat) π(x);
+@induction{y}: y func(x nat) bool ==> {
+	y(1) && {x}(x nat ==> { y(x) ==> y(succ(x)) })
+==> 	{x}(x nat ==> y(x))
 };
 
-auto negeq: for (x, y) x != y === !(x == y);
-auto dblneg: for (P) !!P == P;
+auto negeq{x, y}: x != y === !(x == y);
+auto dblneg{P}: !!P === P;
 
-thm1_verbose: for (x, y nat) x != y ==> succ(x) != succ(y) {
+thm1_verbose{x, y}: x, y nat && x != y ==> succ(x) != succ(y) {
 	!this{} ==> false {
 		!-this{}
-	=== 	(x, y nat) && (x != y) && !(succ(x) != succ(y))
-	==> { negeq with succ(x), succ(y) } ~ [2][0]
-		(x, y nat) && (x != y) && !!(succ(x) == succ(y))
-	=== { dblneg with succ(x) == succ(y) } ~ [2]
-		(x, y nat) && (x != y) && (succ(x) == succ(y))
-	==> { injectivity with x, y } ~ [0, 2]
-		(x == y) && (x != y)
-	=== { negeq with x, y } ~ [1]
-		(x == y) && !(x == y);
+	=== 	x, y nat && x != y && !(succ(x) != succ(y))
+	=== negeq{succ(x), succ(y)} ~ [2][0]
+		x, y nat && x != y && !!(succ(x) == succ(y))
+	=== dblneg{succ(x) == succ(y)} ~ [2]
+		x, y nat && x != y && succ(x) == succ(y)
+	==> injectivity{x, y} ~ [0, 2] /* x, y nat && succ(x) == succ(y) */
+		x == y && x != y
+	=== negeq{x, y} ~ [1]
+		x == y && !(x == y);
 	===	false;
 	}
-==>	this{};
+===	this{};
 };
 
-/* auto applied with the variables, terms explicitly stated */
+
+/* structure of proof not explicitly stated */
 thm1_auto0: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{} ==> false {
-		(x, y nat) && (x != y) && !(succ(x) != succ(y))
-	==> { auto with succ(x), succ(y) } ~ [2]
-		(x, y nat) && (x != y) && (succ(x) == succ(y))
-	==> { injectivity with x, y } ~ [0, 2]
-		(x == y) && (x != y)
-	=== { auto with x, y } ~ [1]
-		(x == y) && !(x == y);
-	};
+	!this{}
+=== 	x, y nat && x != y && !(succ(x) != succ(y))
+=== { negeq succ(x), succ(y) } ~ [2][0]
+	x, y nat && x != y && !!(succ(x) == succ(y))
+=== { dblneg succ(x) == succ(y) } ~ [2]
+	x, y nat && x != y && succ(x) == succ(y)
+==> { injectivity x, y } ~ [0, 2]
+	x == y && x != y
+=== { negeq x, y } ~ [1]
+	x == y && !(x == y)
+===	false;
 };
 
-/* auto applied with the terms explicitly stated */
+
+/* auto applied the variables and terms explicitly stated */
 thm1_auto1: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{} ==> false {
-		(x, y nat) && (x != y) && !(succ(x) != succ(y))
-	==> { auto } ~ [2]
-		(x, y nat) && (x != y) && (succ(x) == succ(y))
-	==> { injectivity with x, y } ~ [0, 2]
-		(x == y) && (x != y)
-	=== { auto } ~ [1]
-		(x == y) && !(x == y);
-	};
+	!this{}
+=== 	x, y nat && x != y && !(succ(x) != succ(y))
+=== { auto succ(x), succ(y) } ~ [2][0]
+	x, y nat && x != y && !!(succ(x) == succ(y))
+=== { auto succ(x) == succ(y) } ~ [2]
+	x, y nat && x != y && succ(x) == succ(y)
+==> { injectivity x, y } ~ [0, 2]
+	x == y && x != y
+=== { auto x, y } ~ [1]
+	x == y && !(x == y)
+===	false;
+};
+
+/* auto (no braces) applied the terms explicitly stated */
+thm1_auto2: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{}
+=== 	x, y nat && x != y && !(succ(x) != succ(y))
+=== auto ~ [2][0]
+	x, y nat && x != y && !!(succ(x) == succ(y))
+=== auto ~ [2]
+	x, y nat && x != y && succ(x) == succ(y)
+==> { injectivity x, y } ~ [0, 2]
+	x == y && x != y
+=== auto ~ [1]
+	x == y && !(x == y)
+===	false;
 };
 
 /* auto applied to the correct terms implicitly */
-thm1_auto2: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{} ==> false {
-		(x, y nat) && (x != y) && (succ(x) == succ(y))
-	==> { injectivity with x, y } ~ [0, 2]
-		(x == y) && (x != y);
-	};
+thm1_auto3: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{}
+=== 	x, y nat && x != y && !(succ(x) != succ(y))
+=== auto
+	x, y nat && x != y && !!(succ(x) == succ(y))
+=== auto
+	x, y nat && x != y && succ(x) == succ(y)
+==> { injectivity x, y } ~ [0, 2]
+	x == y && x != y
+=== auto
+	x == y && !(x == y)
+===	false;
 };
 
-/* predicates of bound variables implicitly passed through */
-thm1_auto3: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{} ==> false {
-		(x != y) && (succ(x) == succ(y))
-	==> { injectivity with x, y } ~ [1]
-		(x == y) && (x != y);
-	};
+/* implicit auto with the same logic */
+thm1_auto4: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{}
+=== 	x, y nat && x != y && !(succ(x) != succ(y))
+=== 	x, y nat && x != y && !!(succ(x) == succ(y))
+=== 	x, y nat && x != y && succ(x) == succ(y)
+==> { injectivity x, y } ~ [0, 2]
+	x == y && x != y
+===	x == y && !(x == y)
+===	false;
+};
+
+/* fully implicit auto */
+thm1_auto5: for (x, y nat) x != y ==> succ(x) != succ(y) {
+	!this{}
+=== 	x, y nat && x != y && !(succ(x) != succ(y))
+==> { injectivity x, y } ~ [0, 2]
+	x == y && x != y
+===	false;
 };

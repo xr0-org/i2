@@ -5,44 +5,156 @@
 		"fmt"
 	)
 
-	type identifier struct {
-		s string
-		axiom bool
+	type statement struct {
 	}
 %}
 
 %union{
 	s	string
+	sarr	[]string
 	n	int
-	id	identifier
-	idlst	[]identifier
+	narr	[]int
+	stmt	statement
 }
 
-%type <id> identifier
-%type <idlst> identifier_list
+%type <s> modifier
+%type <sarr> identifier_list modifier_list
+%type <narr> constant_list
 
-%token <s> tkId tkType tkAuto tkFunc
-%token <n> tkNum
+/* primary */
+%token <s> tkIdentifier tkFalse tkTrue
+%token <n> tkConstant
+
+/* operators */
+%token <s> tkLt tkGt tkEq tkNe tkAnd tkOr tkEqv tkImpl tkRevImpl
+
+/* keywords */ 
+%token <s> tkType tkAuto tkFunc tkFor
 
 %%
 statements
-	: statement ';' statements
+	: modifier_list statement ';' statements
 	| /* empty */
 	;
 
 statement
-	: tkType identifier '(' identifier_list ')'
-		{ fmt.Printf("type: %v %v\n", $2, $4) }
-	| tkAuto identifier ':' tkNum identifier
-	| tkFunc identifier '(' identifier_list identifier ')' identifier
+	: tkIdentifier '{' identifier_list '}' ':' proposition
+	| function
+	;
+
+function
+	: tkFunc tkIdentifier '(' identifier_list ')' predicate 
+	| tkFunc tkIdentifier '(' type_assertion_list ')' predicate 
+	;
+
+type_assertion_list
+	: identifier_list tkIdentifier
+		{ fmt.Printf("type: %v %v\n", $1, $2) }
+	| constant_list tkIdentifier
+		{ fmt.Printf("type: %d %v\n", $1, $2) }
+	;
+
+constant_list
+	: constant_list ',' tkConstant		{ $$ = append($1, $3) }
+	| tkConstant				{ $$ = []int{$1} }
+	;
+
+modifier_list
+	: modifier_list modifier		{ $$ = append($1, $2) }
+	| /* empty */				{ $$ = []string{} }
+	;
+
+modifier
+	: '@'					{ $$ = "@" }
+	| tkAuto
 	;
 
 identifier_list
-	: identifier_list ',' identifier	{ $$ = append($1, $3) }
-	| identifier				{ $$ = []identifier{$1} }
+	: identifier_list ',' tkIdentifier	{ $$ = append($1, $3) }
+	| tkIdentifier				{ $$ = []string{$1} }
 	;
 
-identifier
-	: tkId					{ $$ = identifier{$1, false} }
-	| '@' tkId				{ $$ = identifier{$2, true} }
+predicate
+	: tkIdentifier
+	;
+
+proposition
+	: proposition tkEqv binding_proposition
+	| proposition tkImpl binding_proposition
+	| proposition tkRevImpl binding_proposition
+	| binding_proposition
+	;
+
+binding_proposition
+	: tkFor '(' type_assertion_list ')' binding_proposition
+		{ fmt.Println("for") }
+	| logical_or_proposition
+	| '{' logical_or_proposition '}'
+	;
+
+logical_or_proposition
+	: logical_or_proposition tkOr logical_and_proposition
+	| logical_and_proposition
+	;
+
+logical_and_proposition
+	: logical_and_proposition tkAnd unary_proposition
+	| unary_proposition
+	;
+
+unary_proposition
+	: '!' unary_proposition
+	| primary_proposition
+	;
+
+primary_proposition
+	: relational_proposition
+	| type_assertion_list
+	| tkTrue
+	| tkFalse
+	| '(' proposition ')'
+	;
+
+relational_proposition
+	: relational_proposition order expression
+	| expression order expression
+	;
+
+order
+	: '<'
+	| '>'
+	| tkEq
+	| tkNe
+	| tkGt
+	| tkLt
+	;
+
+expression
+	: expression '+' multiplicative_expression
+	| expression '-' multiplicative_expression
+	| multiplicative_expression
+	;
+
+multiplicative_expression
+	: multiplicative_expression '*' postfix_expression
+	| multiplicative_expression '/' postfix_expression
+	| multiplicative_expression '%' postfix_expression
+	| postfix_expression
+	;
+
+argument_list
+	: argument_list ',' proposition
+	| proposition
+	;
+
+postfix_expression
+	: postfix_expression '(' argument_list ')'
+	| postfix_expression '(' identifier_list ')'
+	| primary_expression
+	;
+
+primary_expression
+	: tkIdentifier
+	| tkConstant
+	| '(' expression ')'
 	;

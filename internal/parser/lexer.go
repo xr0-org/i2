@@ -3,9 +3,9 @@ package parser
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"unicode"
-	"strconv"
 )
 
 const (
@@ -19,7 +19,7 @@ type lexer struct {
 }
 
 func (l *lexer) Error(err string) {
-	fmt.Fprintf(os.Stderr, "error: %s, at rune: '%c'\n", err, l.input[l.pos])
+	fmt.Fprintf(os.Stderr, "error: %s, near: '%.*s'\n", err, 10, string(l.input[l.pos-10:]))
 }
 
 func (l *lexer) Lex(lval *yySymType) int {
@@ -52,10 +52,43 @@ type token struct {
 	token, length int
 }
 
+var dblpunct = map[rune]int{
+	'!': tkNe,
+	'=': tkEq,
+	'>': tkGt,
+	'<': tkLt,
+	'&': tkAnd,
+}
+
 func lexPunct(input []rune, lval *yySymType) (*token, error) {
 	switch c := input[0]; c {
-	case ';', '(', ')', '@', ',', ':':
+	case ';', '(', ')', '{', '}', '@', ',', ':':
 		return &token{int(c), 1}, nil
+	case '!', '=', '>', '<', '&':
+		if len(input) < 2 {
+			return &token{int(c), 1}, nil
+		}
+		tk, ok := dblpunct[c]
+		if !ok {
+			return nil, fmt.Errorf("unknown symbol '%s'", string(input[:2]))
+		}
+		if len(input) > 2 {
+			d := input[2]
+			switch tk {
+			case tkEq:
+				switch d {
+				case '=':
+					return &token{tkEqv, 3}, nil
+				case '>':
+					return &token{tkImpl, 3}, nil
+				}
+			case tkLt:
+				if d == '=' {
+					return &token{tkRevImpl, 3}, nil
+				}
+			}
+		}
+		return &token{tk, 2}, nil
 	default:
 		return nil, fmt.Errorf("unknown char '%c'", c)
 	}
@@ -63,15 +96,18 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 
 var keyword = map[string]int{
 	"type": tkType,
-	"auto": tkAuto,
 	"func": tkFunc,
+
+	"auto": tkAuto,
+
+	"for": tkFor,
 }
 
 func stringtype(s string) int {
 	if tk, ok := keyword[s]; ok {
 		return tk
 	}
-	return tkId
+	return tkIdentifier
 }
 
 func lexString(input []rune, lval *yySymType) (*token, error) {
@@ -95,13 +131,12 @@ func lexNum(input []rune, lval *yySymType) (*token, error) {
 	}
 	var b strings.Builder
 	for n := 0; n < len(input) && unicode.IsDigit(input[n]); n++ {
-		b.WriteRune(input[n])	
+		b.WriteRune(input[n])
 	}
 	val, err := strconv.Atoi(b.String())
 	if err != nil {
 		return nil, fmt.Errorf("could not parse int: '%s'", b.String())
 	}
 	lval.n = val
-	return &token{tkNum, len(fmt.Sprint(lval.n))}, nil
+	return &token{tkConstant, len(fmt.Sprint(lval.n))}, nil
 }
-
