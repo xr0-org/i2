@@ -97,10 +97,9 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 var keyword = map[string]int{
 	"type": tkType,
 	"func": tkFunc,
-
 	"auto": tkAuto,
-
 	"for": tkFor,
+	"this": tkThis,
 }
 
 func stringtype(s string) int {
@@ -122,6 +121,7 @@ func lexString(input []rune, lval *yySymType) (*token, error) {
 		b.WriteRune(input[n])
 	}
 	lval.s = b.String()
+	fmt.Printf("lval.s: %s\n", lval.s)
 	return &token{stringtype(lval.s), len(lval.s)}, nil
 }
 
