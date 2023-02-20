@@ -18,8 +18,53 @@ type lexer struct {
 	pos   int
 }
 
+type lineinfo struct {
+	lines   [][]rune
+	linepos int // the position on the line
+	n       int // the line number
+}
+
+func getlineinfo(input []rune, pos int) *lineinfo {
+	info := &lineinfo{lines: [][]rune{}}
+	last := 0
+	for i := 0; i < len(input); i++ {
+		if input[i] == '\n' {
+			if last <= pos && pos <= i {
+				info.linepos = pos - last
+				info.n = len(info.lines)
+			}
+			info.lines = append(info.lines, input[last:i])
+			last = i + 1
+		}
+	}
+	return info
+}
+
+type colour string
+
+const (
+	colourRed colour = "\x1B[31m"
+	colourGrn        = "\x1B[32m"
+	colourYel        = "\x1B[33m"
+	colourBlu        = "\x1B[34m"
+	colourMag        = "\x1B[35m"
+	colourCyn        = "\x1B[36m"
+	colourWht        = "\x1B[37m"
+	colourOff        = "\x1B[0m"
+)
+
 func (l *lexer) Error(err string) {
-	fmt.Fprintf(os.Stderr, "error: %s, near: '%.*s'\n", err, 10, string(l.input[l.pos-10:]))
+	info := getlineinfo(l.input, l.pos-1)
+	fmt.Fprint(os.Stderr, colourRed)
+	fmt.Fprintf(os.Stderr, ">>> %s\n    ", string(info.lines[info.n]))
+	fmt.Fprint(os.Stderr, colourOff)
+	for i := 0; i < info.linepos; i++ {
+		fmt.Fprintf(os.Stderr, " ")
+	}
+	fmt.Fprintf(os.Stderr, "^\n")
+	fmt.Fprintf(os.Stderr, "error: %s at position %d on line %d\n",
+		err, info.linepos, info.n+1)
+	os.Exit(1)
 }
 
 func (l *lexer) Lex(lval *yySymType) int {
@@ -62,7 +107,7 @@ var dblpunct = map[rune]int{
 
 func lexPunct(input []rune, lval *yySymType) (*token, error) {
 	switch c := input[0]; c {
-	case ';', '(', ')', '{', '}', '@', ',', ':':
+	case ';', '(', ')', '[', ']', '{', '}', '@', ',', ':', '~':
 		return &token{int(c), 1}, nil
 	case '!', '=', '>', '<', '&':
 		if len(input) < 2 {
@@ -84,21 +129,36 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 				}
 			case tkLt:
 				if d == '=' {
-					return &token{tkRevImpl, 3}, nil
+					return &token{tkFllw, 3}, nil
 				}
 			}
 		}
-		return &token{tk, 2}, nil
+		d := input[1]
+		switch tk {
+		case tkAnd:
+			if d == '&' {
+				return &token{tk, 2}, nil
+			}
+			break
+		default:
+			if d == '=' {
+				return &token{tk, 2}, nil
+			}
+			if tk == tkNe {
+				return &token{'!', 1}, nil
+			}
+			break
+		}
+		return nil, fmt.Errorf("unknown symbol '%s'", string(input[:2]))
 	default:
 		return nil, fmt.Errorf("unknown char '%c'", c)
 	}
 }
 
 var keyword = map[string]int{
-	"type": tkType,
+	"tmpl": tkTmpl,
 	"func": tkFunc,
-	"auto": tkAuto,
-	"for": tkFor,
+
 	"this": tkThis,
 }
 
@@ -121,7 +181,6 @@ func lexString(input []rune, lval *yySymType) (*token, error) {
 		b.WriteRune(input[n])
 	}
 	lval.s = b.String()
-	fmt.Printf("lval.s: %s\n", lval.s)
 	return &token{stringtype(lval.s), len(lval.s)}, nil
 }
 

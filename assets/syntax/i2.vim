@@ -10,7 +10,7 @@ syntax region	String	start=+"+ skip=+\\"+ end=+"+
 " Statement
 syntax keyword	Keyword	        mod import export
 syntax keyword	Repeat	        for some with
-syntax keyword	Type	        func type
+syntax keyword	Type	        func tmpl
 syntax keyword	Label	        this
 syntax keyword	Exception	true false
 

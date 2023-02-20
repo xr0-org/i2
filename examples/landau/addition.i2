@@ -1,117 +1,34 @@
+@func eq(x, y) bool;
+
 @func nat(x) bool;
 
-@auto one{}: 1 nat;
+/* Peano axioms */
 
+/* one: 1 is a natural number. */
+@tmpl one() { 1 nat };
+
+/* succ: For each x there exists exactly one natural number, called the
+ * successor of x, which will be denoted by succ(x). */
 @func succ(x nat) nat;
 
-@succ_notone{x}: x nat ==> succ(x) != 1;
+/* succ_notone: We always have succ(x) != 1. */
+@tmpl succ_notone(x) { x nat ==> !eq(succ(x), 1) };
 
-@injectivity{x, y}: x, y nat && succ(x) == succ(y) ==> x == y;
+/* injectivity: If succ(x) == succ(y) then x == y. */ 
+@tmpl injectivity(x, y) { x, y nat && eq(succ(x), succ(y)) ==> eq(x, y) };
 
-@induction{y}: y func(x nat) bool ==> {
-	y(1) && {x}(x nat ==> { y(x) ==> y(succ(x)) })
-==> 	{x}(x nat ==> y(x))
+/* induction: The axiom of induction. */
+@tmpl induction(y) {
+	y func(nat) bool ==> (
+		y(1) && (x){x nat ==> ( y(x) ==> y(succ(x)) )}
+	==> 	(x){x nat ==> y(x)}
+	)
 };
 
-auto negeq{x, y}: x != y === !(x == y);
-auto dblneg{P}: !!P === P;
-
-thm1_verbose{x, y}: x, y nat && x != y ==> succ(x) != succ(y) {
-	!this{} ==> false {
-		!-this{}
-	=== 	x, y nat && x != y && !(succ(x) != succ(y))
-	=== negeq{succ(x), succ(y)} ~ [2][0]
-		x, y nat && x != y && !!(succ(x) == succ(y))
-	=== dblneg{succ(x) == succ(y)} ~ [2]
-		x, y nat && x != y && succ(x) == succ(y)
-	==> injectivity{x, y} ~ [0, 2] /* x, y nat && succ(x) == succ(y) */
-		x == y && x != y
-	=== negeq{x, y} ~ [1]
-		x == y && !(x == y);
-	===	false;
-	}
-===	this{};
-};
-
-
-/* structure of proof not explicitly stated */
-thm1_auto0: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{}
-=== 	x, y nat && x != y && !(succ(x) != succ(y))
-=== { negeq succ(x), succ(y) } ~ [2][0]
-	x, y nat && x != y && !!(succ(x) == succ(y))
-=== { dblneg succ(x) == succ(y) } ~ [2]
-	x, y nat && x != y && succ(x) == succ(y)
-==> { injectivity x, y } ~ [0, 2]
-	x == y && x != y
-=== { negeq x, y } ~ [1]
-	x == y && !(x == y)
-===	false;
-};
-
-
-/* auto applied the variables and terms explicitly stated */
-thm1_auto1: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{}
-=== 	x, y nat && x != y && !(succ(x) != succ(y))
-=== { auto succ(x), succ(y) } ~ [2][0]
-	x, y nat && x != y && !!(succ(x) == succ(y))
-=== { auto succ(x) == succ(y) } ~ [2]
-	x, y nat && x != y && succ(x) == succ(y)
-==> { injectivity x, y } ~ [0, 2]
-	x == y && x != y
-=== { auto x, y } ~ [1]
-	x == y && !(x == y)
-===	false;
-};
-
-/* auto (no braces) applied the terms explicitly stated */
-thm1_auto2: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{}
-=== 	x, y nat && x != y && !(succ(x) != succ(y))
-=== auto ~ [2][0]
-	x, y nat && x != y && !!(succ(x) == succ(y))
-=== auto ~ [2]
-	x, y nat && x != y && succ(x) == succ(y)
-==> { injectivity x, y } ~ [0, 2]
-	x == y && x != y
-=== auto ~ [1]
-	x == y && !(x == y)
-===	false;
-};
-
-/* auto applied to the correct terms implicitly */
-thm1_auto3: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{}
-=== 	x, y nat && x != y && !(succ(x) != succ(y))
-=== auto
-	x, y nat && x != y && !!(succ(x) == succ(y))
-=== auto
-	x, y nat && x != y && succ(x) == succ(y)
-==> { injectivity x, y } ~ [0, 2]
-	x == y && x != y
-=== auto
-	x == y && !(x == y)
-===	false;
-};
-
-/* implicit auto with the same logic */
-thm1_auto4: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{}
-=== 	x, y nat && x != y && !(succ(x) != succ(y))
-=== 	x, y nat && x != y && !!(succ(x) == succ(y))
-=== 	x, y nat && x != y && succ(x) == succ(y)
-==> { injectivity x, y } ~ [0, 2]
-	x == y && x != y
-===	x == y && !(x == y)
-===	false;
-};
-
-/* fully implicit auto */
-thm1_auto5: for (x, y nat) x != y ==> succ(x) != succ(y) {
-	!this{}
-=== 	x, y nat && x != y && !(succ(x) != succ(y))
-==> { injectivity x, y } ~ [0, 2]
-	x == y && x != y
-===	false;
+tmpl thm1(x, y) { x, y nat && !eq(x, y) ==> !eq(succ(x), succ(y)) } {
+	!this[0]
+===	x, y nat && !eq(x, y) && eq(succ(x), succ(y))
+==> { injectivity(x, y) } ~ [0, 2] 
+	eq(x, y) && !eq(x, y)
+===	false
 };
