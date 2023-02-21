@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -209,10 +208,6 @@ func lexNum(input []rune, lval *yySymType) (*token, error) {
 	for n := 0; n < len(input) && unicode.IsDigit(input[n]); n++ {
 		b.WriteRune(input[n])
 	}
-	val, err := strconv.Atoi(b.String())
-	if err != nil {
-		return nil, fmt.Errorf("could not parse int: '%s'", b.String())
-	}
-	lval.n = val
-	return &token{tkConstant, len(fmt.Sprint(lval.n))}, nil
+	lval.s = b.String()
+	return &token{tkConstant, len(lval.s)}, nil
 }

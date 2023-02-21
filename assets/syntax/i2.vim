@@ -8,7 +8,7 @@ syntax region	String	start=+"+ skip=+\\"+ end=+"+
 
 
 " Statement
-syntax keyword	Keyword	        mod import export
+syntax keyword	Keyword	        mod import export bool
 syntax keyword	Repeat	        for some with
 syntax keyword	Type	        func tmpl
 syntax keyword	Label	        this
