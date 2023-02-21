@@ -54,7 +54,7 @@ const (
 )
 
 func (l *lexer) Error(err string) {
-	info := getlineinfo(l.input, l.pos-1)
+	info := getlineinfo(l.input, l.pos)
 	fmt.Fprint(os.Stderr, colourRed)
 	fmt.Fprintf(os.Stderr, ">>> %s\n    ", string(info.lines[info.n]))
 	fmt.Fprint(os.Stderr, colourOff)
@@ -68,7 +68,7 @@ func (l *lexer) Error(err string) {
 }
 
 func (l *lexer) Lex(lval *yySymType) int {
-	if l.pos += skipWhitespace(l.input[l.pos:]); l.pos >= len(l.input) {
+	if l.pos += skipNPCs(l.input[l.pos:], l); l.pos >= len(l.input) {
 		return tkEof
 	}
 	lexers := []func([]rune, *yySymType) (*token, error){
@@ -82,15 +82,32 @@ func (l *lexer) Lex(lval *yySymType) int {
 		l.pos += tk.length
 		return tk.token
 	}
+	l.Error("unrecoginized sequence")
 	return tkError
 }
 
-func skipWhitespace(input []rune) int {
+func skipNPCs(input []rune, l *lexer) int {
 	n := 0
 	for n < len(input) && unicode.IsSpace(input[n]) {
 		n++
 	}
+	if n+1 < len(input) && string(input[n:n+2]) == "/*" {
+		n += skipComments(input[n:], l)
+		return n + skipNPCs(input[n:], l)
+	}
 	return n
+}
+
+func skipComments(input []rune, l *lexer) int {
+	n := 0
+	for n+1 < len(input) {
+		if string(input[n:n+2]) == "*/" {
+			return n + 2
+		}
+		n++
+	}
+	l.Error("file ends in comment")
+	return -1
 }
 
 type token struct {
