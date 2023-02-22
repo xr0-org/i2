@@ -14,7 +14,14 @@ func TestImpl(t *testing.T) {
 	if !b {
 		t.Fatalf("%s failed", impl)
 	}
-	impl = Eqv(Impl(Not(p), constant(false)), p)
+	r := variable("q")
+	// (p && !r ==> !q) ==> (p && q ==> r)
+	impl = Impl(
+		// p && !r ==> !q
+		Impl(And(p, Not(r)), Not(q)),
+		// p && q ==> r
+		Impl(And(p, q), r),
+	)
 	b, err = decide(impl)
 	if err != nil {
 		t.Fatal(err)

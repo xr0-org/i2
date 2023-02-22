@@ -17,18 +17,10 @@
 /* injectivity: If succ(x) == succ(y) then x == y. */ 
 @tmpl injectivity(x, y) { x, y nat && eq(succ(x), succ(y)) ==> eq(x, y) };
 
-/* induction: The axiom of induction. */
-@tmpl induction(y) {
-	y func(nat) bool ==> (
-		y(1) && (x){x nat ==> ( y(x) ==> y(succ(x)) )}
-	==> 	(x){x nat ==> y(x)}
-	)
-};
-
 tmpl thm1(x, y) { x, y nat && !eq(x, y) ==> !eq(succ(x), succ(y)) } {
-	!this[0]
+	!this
 ===	x, y nat && !eq(x, y) && eq(succ(x), succ(y))
-==> { injectivity(x, y) } ~ [0, 2] 
+==> { injectivity(x, y) } ~ [0, 2]
 	eq(x, y) && !eq(x, y)
 ===	false
 };

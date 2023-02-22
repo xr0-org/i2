@@ -5,21 +5,16 @@
 		"git.sr.ht/~lbnz/i2/internal/symbol"
 	)
 
-	func installAny(T symbol.Table, values []string) {
-		for _, s := range values {
-			T[s] = symbol.Any
-		}
+	func anysFromStrings(sarr []string) []symbol.Parameter {
+		return paramsFromStringsParam(sarr, symbol.Any)
 	}
 
-	type typedlist struct {
-		vars []string
-		pred symbol.Type
-	}
-
-	func installTypedlist(T symbol.Table, list typedlist) {
-		for _, v := range list.vars {
-			T[v] = list.pred
+	func paramsFromStringsParam(sarr []string, pred symbol.Type) []symbol.Parameter {
+		anys := make([]symbol.Parameter, len(sarr))
+		for i, s := range sarr {
+			anys[i] = symbol.Parameter{Name: s, Type: pred}
 		}
+		return anys
 	}
 
 	var sigma = symbol.Table{}
@@ -30,10 +25,10 @@
 	sarr		[]string
 	n		int
 	b		bool
-	sym_tmpl	symbol.TemplateSymbol
-	sym_func	symbol.FunctionSymbol
+	sym_tmpl	symbol.Template
+	sym_func	symbol.Function
 	sym_type	symbol.Type
-	typed_list	typedlist
+	sym_paramarr	[]symbol.Parameter
 }
 
 %type <b> axiom
@@ -42,7 +37,7 @@
 %type <sym_tmpl> template
 %type <sym_func> function
 %type <sym_type> predicate
-%type <typed_list> type_assertion_list
+%type <sym_paramarr> type_assertion_list
 
 /* primary */
 %token <s> tkIdentifier tkConstant tkFalse tkTrue
@@ -77,37 +72,35 @@ statement
 
 template
 	: '(' value_list ')' '{' proposition '}'	{
-		t := symbol.Table{}
-		installAny(t, $2)
-		$$ = symbol.TemplateSymbol{T: t}
+		$$ = symbol.Template{Params: anysFromStrings($2)}
 	}
 	| '(' ')' '{' proposition '}'			{
-		$$ = symbol.TemplateSymbol{T: symbol.Table{}}
+		$$ = symbol.Template{Params: []symbol.Parameter{}}
 	}
 	| template '{' proposition '}'
 	;
 
 function
 	: '(' type_assertion_list ')' predicate	{
-		t := symbol.Table{}
-		installTypedlist(t, $2)
-		$$ = symbol.FunctionSymbol{
-			T:	t,
-			Return: $4,
+		$$ = symbol.Function{
+			Type: symbol.FunctionType{
+				Params: $2,
+				Return: $4,
+			},
 		}
 	}
 	| '(' value_list ')' predicate {
-		t := symbol.Table{}
-		installAny(t, $2)
-		$$ = symbol.FunctionSymbol{
-			T:	t,
-			Return: $4,
+		$$ = symbol.Function{
+			Type: symbol.FunctionType{
+				Params: anysFromStrings($2),
+				Return: $4,
+			},
 		}
 	}
 	;
 
 type_assertion_list
-	: value_list predicate	{ $$ = typedlist{$1, $2} }
+	: value_list predicate	{ $$ = paramsFromStringsParam($1, $2) }
 	;
 
 predicate
@@ -170,7 +163,7 @@ primary_proposition
 	: '(' value_list ')' '{' proposition '}'
 	| type_assertion_list
 	| value_list
-	| tkThis '[' tkConstant ']'
+	| tkThis
 	| tkTrue
 	| tkFalse
 	| '(' proposition ')'

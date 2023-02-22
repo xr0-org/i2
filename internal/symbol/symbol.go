@@ -1,6 +1,16 @@
 package symbol
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrNoTable = errors.New("symbol has no table")
+
+	errIsInvocationLengthMismatch    = "length of parameters does not match parameters in function abstract"
+	errIsInvocationParameterMismatch = "parameter %s is of type %s but function definition requires type %s in position %d"
+)
 
 type Symbol interface {
 	Table() (Table, error)
@@ -8,33 +18,74 @@ type Symbol interface {
 
 type Table map[string]Symbol
 
-type FunctionSymbol struct {
+type Function struct {
 	IsAxiom bool
-	T       Table
-	Return  Type
+	Type    FunctionType
 }
 
-func (f FunctionSymbol) Table() (Table, error) {
-	return f.T, nil
+func (f Function) Table() (Table, error) {
+	T := Table{}
+	for _, p := range f.Type.Params {
+		T[p.Name] = p.Type
+	}
+	return T, nil
 }
 
-type TemplateSymbol struct {
+func optionalat(at bool) string {
+	if at {
+		return "@"
+	}
+	return ""
+}
+
+type Parameter struct {
+	Name string
+	Type
+}
+
+func (f Function) IsInvocation(params []Parameter) error {
+	if len(params) != len(f.Type.Params) {
+		return fmt.Errorf(errIsInvocationLengthMismatch)
+	}
+	for i := range params {
+		p, fp := params[i], f.Type.Params[i]
+		if !(fp.Type == Any || fp.Type == p.Type) {
+			return fmt.Errorf(
+				errIsInvocationLengthMismatch,
+				p.Name, p.Type, fp.Type, i,
+			)
+		}
+	}
+	return nil
+}
+
+func (f Function) String() string {
+	return fmt.Sprintf("%sfunc %s", optionalat(f.IsAxiom), f.Type)
+}
+
+type Template struct {
 	IsAxiom bool
-	T       Table
+	Params  []Parameter
 }
 
-func (t TemplateSymbol) Table() (Table, error) {
-	return t.T, nil
+func (t Template) Table() (Table, error) {
+	T := Table{}
+	for _, p := range t.Params {
+		T[p.Name] = p.Type
+	}
+	return T, nil
 }
 
-type FunctionVariable struct {
-	Params []Type
+func (t Template) String() string {
+	return fmt.Sprintf("%stmpl(%s)", optionalat(t.IsAxiom), t.Params)
+}
+
+type FunctionType struct {
+	Params []Parameter
 	Return Type
 }
 
-var ErrNoTable = errors.New("symbol has no table ")
-
-func (f FunctionVariable) Table() (Table, error) {
+func (f FunctionType) Table() (Table, error) {
 	return nil, ErrNoTable
 }
 

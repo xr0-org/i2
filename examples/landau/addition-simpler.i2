@@ -1,0 +1,44 @@
+@func eq(x, y) bool;
+
+@func nat(x) bool;
+
+/* Peano axioms */
+
+/* one: 1 is a natural number. */
+@tmpl one() { 1 nat };
+
+/* succ: For each x there exists exactly one natural number, called the
+ * successor of x, which will be denoted by succ(x). */
+@func succ(x nat) nat;
+
+/* succ_notone: We always have succ(x) != 1. */
+@tmpl succ_notone(x nat) { !eq(succ(x), 1) };
+
+/* injectivity: If succ(x) == succ(y) then x == y. */ 
+@tmpl injectivity(x, y nat) { eq(succ(x), succ(y)) ==> eq(x, y) };
+
+/* induction: The axiom of induction. */
+@tmpl induction(y func(nat) bool) {
+	y(1) && (x){x nat ==> ( y(x) ==> y(succ(x)) )}
+==> 	(x){x nat ==> y(x)}
+};
+
+tmpl thm1(x, y nat) { !eq(x, y) ==> !eq(succ(x), succ(y)) } {
+	!this
+===	!eq(x, y) && eq(succ(x), succ(y))
+==> { injectivity(x, y) } ~ [1]
+	!eq(x, y) && eq(x, y)
+===	false
+};
+
+tmpl thm1_shorter0(x, y nat) { !eq(x, y) ==> !eq(succ(x), succ(y)) } {
+	!eq(x, y) && eq(succ(x), succ(y))
+==> { injectivity(x, y) } ~ [1]
+	!eq(x, y) && eq(x, y)
+};
+
+tmpl thm1_shorter1(x, y nat) { !eq(x, y) ==> !eq(succ(x), succ(y)) } {
+	eq(succ(x), succ(y))
+==> { injectivity(x, y) }
+	eq(x, y)
+};
