@@ -2,44 +2,45 @@ package truth
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
-type proposition interface {
-	variables() []variable
+type Proposition interface {
+	Variables() []Variable
 	String() string
 }
 
-type constant bool
+type Constant bool
 
-func (b constant) variables() []variable {
-	return []variable{}
+func (b Constant) Variables() []Variable {
+	return []Variable{}
 }
 
-func (b constant) String() string {
+func (b Constant) String() string {
 	return fmt.Sprintf("%t", b)
 }
 
-type variable string
+type Variable string
 
-func (v variable) variables() []variable {
-	return []variable{v}
+func (v Variable) Variables() []Variable {
+	return []Variable{v}
 }
 
-func (v variable) String() string {
+func (v Variable) String() string {
 	return string(v)
 }
 
 type implication struct {
-	antecedent, consequent proposition
+	antecedent, consequent Proposition
 }
 
-func (impl implication) variables() []variable {
-	vars := []variable{}
-	m := map[variable]bool{}
+func (impl implication) Variables() []Variable {
+	vars := []Variable{}
+	m := map[Variable]bool{}
 	for _, v := range append(
-		impl.antecedent.variables(),
-		impl.consequent.variables()...,
+		impl.antecedent.Variables(),
+		impl.consequent.Variables()...,
 	) {
 		if m[v] {
 			continue
@@ -54,12 +55,12 @@ func (impl implication) String() string {
 	return fmt.Sprintf("(%s ==> %s)", impl.antecedent, impl.consequent)
 }
 
-type assignment map[variable]bool
+type assignment map[Variable]bool
 
 func (m assignment) String() string {
 	parts := []string{}
 	for k, v := range m {
-		parts = append(parts, fmt.Sprintf("%s := %t", k, v))
+		parts = append(parts, fmt.Sprintf("`%s` := %t", k, v))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(parts, ", "))
 }
@@ -74,17 +75,20 @@ func (c *conflict) Error() string {
 		c.A, c.aval, c.B, !c.aval)
 }
 
-func eval(p proposition, m assignment) bool {
-	if b, ok := p.(constant); ok {
+func eval(p Proposition, m assignment) bool {
+	if b, ok := p.(Constant); ok {
 		return bool(b)
-	} else if v, ok := p.(variable); ok {
+	} else if v, ok := p.(Variable); ok {
 		return m[v]
 	}
-	impl, _ := p.(implication)
+	impl, ok := p.(implication)
+	if !ok {
+		panic(fmt.Sprintf("panic: of type %s", reflect.TypeOf(p)))
+	}
 	return !eval(impl.antecedent, m) || eval(impl.consequent, m)
 }
 
-func assignments(vars []variable) []assignment {
+func assignments(vars []Variable) []assignment {
 	if len(vars) == 0 {
 		return []assignment{assignment{}}
 	}
@@ -100,8 +104,8 @@ func assignments(vars []variable) []assignment {
 	return asms
 }
 
-func decide(p proposition) (bool, error) {
-	asms := assignments(p.variables())
+func Decide(p Proposition) (bool, error) {
+	asms := assignments(p.Variables())
 	v0 := eval(p, asms[0])
 	for _, asm := range asms[1:] {
 		if v0 != eval(p, asm) {

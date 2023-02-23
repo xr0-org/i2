@@ -2,22 +2,13 @@
 	package parser
 
 	import (
+		"fmt"
+
 		"git.sr.ht/~lbnz/i2/internal/symbol"
+		"git.sr.ht/~lbnz/i2/internal/truth"
 	)
 
-	func anysFromStrings(sarr []string) []symbol.Parameter {
-		return paramsFromStringsParam(sarr, symbol.Any)
-	}
-
-	func paramsFromStringsParam(sarr []string, pred symbol.Type) []symbol.Parameter {
-		anys := make([]symbol.Parameter, len(sarr))
-		for i, s := range sarr {
-			anys[i] = symbol.Parameter{Name: s, Type: pred}
-		}
-		return anys
-	}
-
-	var sigma = symbol.Table{}
+	var sigma = symbol.Table{"1": symbol.Any}
 %}
 
 %union{
@@ -25,19 +16,33 @@
 	sarr		[]string
 	n		int
 	b		bool
+
+	sym_op		symbol.Operator
 	sym_tmpl	symbol.Template
 	sym_func	symbol.Function
 	sym_type	symbol.Type
 	sym_paramarr	[]symbol.Parameter
+
+	sym_expr	symbol.Expr
+	sym_exprarr	[]symbol.Expr
+	sym_pfexpr	symbol.PostfixExpr
+	sym_pfexpr_ptr	*symbol.PostfixExpr
 }
 
 %type <b> axiom
-%type <s> value
-%type <sarr> value_list
+%type <s> value type
+
+%type <sym_op> connective 
 %type <sym_tmpl> template
 %type <sym_func> function
-%type <sym_type> predicate
+
 %type <sym_paramarr> type_assertion_list
+
+%type <sym_expr> expression logical_and_expression logical_or_expression negated_expression simple_expression constant_expression
+
+%type <sym_exprarr> argument_list
+%type <sym_pfexpr> postfix_expresion
+%type <sym_pfexpr_ptr> justification
 
 /* primary */
 %token <s> tkIdentifier tkConstant tkFalse tkTrue
@@ -63,6 +68,34 @@ statement
 	: axiom tkTmpl tkIdentifier template	{
 		$4.IsAxiom = $1
 		sigma[$3] = $4
+
+		tbl, err := $4.Table()
+		if err != nil {
+			yylex.Error(err.Error())
+		}
+		aExpr, err := $4.E.Analyse(tbl.Nest(sigma))
+		if err != nil {
+			yylex.Error(err.Error())
+		}
+		fmt.Printf("tmpl %s %v\n", $3, aExpr)
+		for _, prf := range $4.Proofs {
+			fmt.Println("proof:")
+			for _, expr := range prf {
+				fmt.Println(expr)
+				aExpr, err := expr.Analyse(tbl.Nest(sigma))
+				if err != nil {
+					yylex.Error(err.Error())
+				}
+				outcome, err := truth.Decide(aExpr.P)
+				if err != nil {
+					yylex.Error(err.Error())
+				}
+				if !outcome {
+					yylex.Error("contradiction")
+				}
+			}
+			fmt.Println("qed")
+		}
 	}
 	| axiom tkFunc tkIdentifier function	{
 		$4.IsAxiom = $1
@@ -71,100 +104,128 @@ statement
 	;
 
 template
-	: '(' value_list ')' '{' proposition '}'	{
-		$$ = symbol.Template{Params: anysFromStrings($2)}
+	: '(' type_assertion_list ')' '{' expression '}'	{
+		$$ = symbol.Template{
+			Params:	$2,
+			E:	$5,
+			Proofs:	[]symbol.RelationChain{},
+		}
 	}
-	| '(' ')' '{' proposition '}'			{
-		$$ = symbol.Template{Params: []symbol.Parameter{}}
+	| '(' ')' '{' expression '}'			{
+		$$ = symbol.Template{
+			Params:	[]symbol.Parameter{},
+			E:	$4,
+			Proofs:	[]symbol.RelationChain{},
+		}
 	}
-	| template '{' proposition '}'
+	| template '{' expression '}'			{
+		prf, ok := $3.(symbol.JustifiableBinaryOpExpr)
+		if !ok {
+			yylex.Error("non bop proof")
+		}
+		$$ = symbol.Template{
+			Params:	$$.Params,
+			E: 	$$.E,
+			Proofs:	append($$.Proofs, prf.Quantise()),
+		}
+	}
 	;
 
 function
-	: '(' type_assertion_list ')' predicate	{
+	: '(' type_assertion_list ')' type {
 		$$ = symbol.Function{
-			Type: symbol.FunctionType{
+			Sig: symbol.FunctionSignature{
 				Params: $2,
-				Return: $4,
-			},
-		}
-	}
-	| '(' value_list ')' predicate {
-		$$ = symbol.Function{
-			Type: symbol.FunctionType{
-				Params: anysFromStrings($2),
-				Return: $4,
+				Return: symbol.Type($4),
 			},
 		}
 	}
 	;
 
 type_assertion_list
-	: value_list predicate	{ $$ = paramsFromStringsParam($1, $2) }
-	;
-
-predicate
-	: tkIdentifier		{ $$ = symbol.Type($1) }
-	| tkFunc function	{ $$ = symbol.Type("func") }
-	;
-
-value_list
-	: value_list ',' value	{ $$ = append($1, $3) }
-	| value			{ $$ = []string{$1} }
+	: type_assertion_list ',' value type
+		{ $$ = append($1, symbol.Parameter{ Name: $3, Type: symbol.Type($4) }) }
+	| value type
+		{ $$ = []symbol.Parameter{symbol.Parameter{Name: $1, Type: symbol.Type($2)}}}
 	;
 
 value
-	: tkConstant
-	| tkIdentifier
+	: tkConstant		{ $$ = $1 }
+	| tkIdentifier		{ $$ = $1 }
+	;
+
+type
+	: tkIdentifier		{ $$ = $1 }
+	| tkFunc function	{ $$ = "func" }
+	;
+
+expression
+	: expression connective justification logical_or_expression { 
+		$$ = symbol.JustifiableBinaryOpExpr{
+			BinaryOpExpr:	symbol.BinaryOpExpr{Op: $2, E1: $1, E2: $4},
+			Just: 		$3,
+		}
+	}
+	| type_assertion_list	{
+		// TODO reconcile this with Expr
+		$$ = symbol.ConstantExpr(false)
+	}
+	| logical_or_expression 
 	;
 
 justification
-	: '{' tkIdentifier '(' argument_list ')' '}' '~' '[' value_list ']'
-	| /* empty */
-	;
-
-proposition
-	: proposition connective justification logical_or_proposition
-	| logical_or_proposition
+	: '{' postfix_expresion '}'
+		{ var x = $2; $$ = &x }
+	| /* empty */ 
+		{ $$ = nil }
 	;
 
 connective
-	: tkEqv
-	| tkImpl
-	| tkFllw
+	: tkEqv		{ $$ = symbol.Eqv }
+	| tkImpl	{ $$ = symbol.Impl }
+	| tkFllw	{ $$ = symbol.Fllw }
 	;
 
-logical_or_proposition
-	: logical_or_proposition tkOr logical_and_proposition
-	| logical_and_proposition
+logical_or_expression
+	: logical_or_expression tkOr logical_and_expression
+		{ $$ = symbol.BinaryOpExpr{Op: symbol.Or, E1: $1, E2: $3} }
+	| logical_and_expression
 	;
 
-logical_and_proposition
-	: logical_and_proposition tkAnd negated_proposition
-	| negated_proposition
+logical_and_expression
+	: logical_and_expression tkAnd negated_expression
+		{ $$ = symbol.BinaryOpExpr{Op: symbol.And, E1: $1, E2: $3} }
+	| negated_expression
 	;
 
-negated_proposition
-	: '!' negated_proposition
-	| postfix_proposition
+negated_expression
+	: '!' negated_expression	{ $$ = symbol.NegatedExpr{$2} }
+	| constant_expression
+	;
+
+constant_expression
+	: tkTrue			{ $$ = symbol.ConstantExpr(true) }
+	| tkFalse			{ $$ = symbol.ConstantExpr(false) }
+	| '(' expression ')'		{ $$ = symbol.BracketedExpr{$2} }
+	| simple_expression
+	;
+
+/* `tkThis` disabled for now */
+simple_expression
+	: tkIdentifier			{ $$ = symbol.SimpleExpr($1) }
+	| tkConstant			{ $$ = symbol.SimpleExpr($1) }
+	| postfix_expresion		{ $$ = symbol.Expr($1) }
 	;
 
 argument_list
-	: argument_list ',' proposition
-	| proposition 
+	: argument_list ',' expression	{ $$ = append($1, $3) }
+	| expression			{ $$ = []symbol.Expr{$1} }
 	;
 
-postfix_proposition
-	: postfix_proposition '(' argument_list ')'
-	| primary_proposition
+postfix_expresion
+	: tkIdentifier '(' argument_list ')'
+		{ $$ = symbol.PostfixExpr{$1, $3} }
+	| tkIdentifier '(' ')'
+		{ $$ = symbol.PostfixExpr{$1, []symbol.Expr{}} }
 	;
-
-primary_proposition
-	: '(' value_list ')' '{' proposition '}'
-	| type_assertion_list
-	| value_list
-	| tkThis
-	| tkTrue
-	| tkFalse
-	| '(' proposition ')'
-	;
+%%

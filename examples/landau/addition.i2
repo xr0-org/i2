@@ -1,6 +1,6 @@
-@func eq(x, y) bool;
+@func eq(x any, y any) bool;
 
-@func nat(x) bool;
+@func nat(x any) bool;
 
 /* Peano axioms */
 
@@ -12,15 +12,21 @@
 @func succ(x nat) nat;
 
 /* succ_notone: We always have succ(x) != 1. */
-@tmpl succ_notone(x) { x nat ==> !eq(succ(x), 1) };
+@tmpl succ_notone(x nat) { !eq(succ(x), 1) };
 
 /* injectivity: If succ(x) == succ(y) then x == y. */ 
-@tmpl injectivity(x, y) { x, y nat && eq(succ(x), succ(y)) ==> eq(x, y) };
+@tmpl injectivity(x nat, y nat) { eq(succ(x), succ(y)) ==> eq(x, y) };
 
-tmpl thm1(x, y) { x, y nat && !eq(x, y) ==> !eq(succ(x), succ(y)) } {
-	!this
-===	x, y nat && !eq(x, y) && eq(succ(x), succ(y))
-==> { injectivity(x, y) } ~ [0, 2]
-	eq(x, y) && !eq(x, y)
+tmpl thm1(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
+	!( !eq(a, b) ==> !eq(succ(a), succ(b)) )
+===	!eq(a, b) && eq(succ(a), succ(b))
+==> { injectivity(a, b) }
+	eq(a, b) && !eq(a, b)
 ===	false
+};
+
+tmpl thm1_simpler(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
+	eq(succ(a), succ(b))
+==> { injectivity(a, b) }
+	eq(a, b)
 };

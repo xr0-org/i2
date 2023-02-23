@@ -119,13 +119,14 @@ var dblpunct = map[rune]int{
 	'>': tkGt,
 	'<': tkLt,
 	'&': tkAnd,
+	'|': tkOr,
 }
 
 func lexPunct(input []rune, lval *yySymType) (*token, error) {
 	switch c := input[0]; c {
 	case ';', '(', ')', '[', ']', '{', '}', '@', ',', ':', '~':
 		return &token{int(c), 1}, nil
-	case '!', '=', '>', '<', '&':
+	case '!', '=', '>', '<', '&', '|':
 		if len(input) < 2 {
 			return &token{int(c), 1}, nil
 		}
@@ -156,6 +157,11 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 				return &token{tk, 2}, nil
 			}
 			break
+		case tkOr:
+			if d == '|' {
+				return &token{tk, 2}, nil
+			}
+			break
 		default:
 			if d == '=' {
 				return &token{tk, 2}, nil
@@ -172,10 +178,11 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 }
 
 var keyword = map[string]int{
-	"tmpl": tkTmpl,
-	"func": tkFunc,
-
-	"this": tkThis,
+	"tmpl":  tkTmpl,
+	"func":  tkFunc,
+	"this":  tkThis,
+	"true":  tkTrue,
+	"false": tkFalse,
 }
 
 func stringtype(s string) int {
