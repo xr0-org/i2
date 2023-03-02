@@ -1,5 +1,11 @@
 @func eq(x any, y any) bool;
 
+@tmpl eq_reflexive(x any) { eq(x, x) };
+
+@tmpl eq_symmetric(x any, y any) { eq(x, y) === eq(y, x) };
+
+@tmpl eq_transitive(x any, y any, z any) { eq(x, y) && eq(y, z) ==> eq(x, z) };
+
 @func nat(x any) bool;
 
 /* Peano axioms */
@@ -15,16 +21,21 @@
 @tmpl succ_notone(x nat) { !eq(succ(x), 1) };
 
 /* injectivity: If succ(x) == succ(y) then x == y. */ 
-@tmpl injectivity(x nat, y nat) { eq(succ(x), succ(y)) ==> eq(x, y) };
+@tmpl injectivity(x nat, y nat) { eq(succ(x), succ(y)) ==> eq(y, x) };
 
 tmpl thm1(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
 	!( !eq(a, b) ==> !eq(succ(a), succ(b)) )
 ===	!eq(a, b) && eq(succ(a), succ(b))
 ==> { injectivity(a, b) }
+	eq(b, a) && !eq(a, b)
+==> { eq_symmetric(a, b) }
 	eq(a, b) && !eq(a, b)
 ===	false
 } {
 	eq(succ(a), succ(b))
-==> { injectivity(a, b) }
+==> { eq_symmetric(succ(a), succ(b)) }
+	eq(succ(b), succ(a))
+==> { injectivity(b, a) }
 	eq(a, b)
 };
+

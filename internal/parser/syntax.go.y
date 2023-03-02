@@ -77,11 +77,11 @@ statement
 		if err != nil {
 			yylex.Error(err.Error())
 		}
-		fmt.Printf("tmpl %s %v\n", $3, aExpr)
+		result.WriteString(fmt.Sprintf("tmpl %s %v\n", $3, aExpr))
 		for _, prf := range $4.Proofs {
-			fmt.Println("proof:")
+			result.WriteString(fmt.Sprintf("proof:\n"))
 			for _, expr := range prf {
-				fmt.Println(expr)
+				result.WriteString(fmt.Sprintf("\t%s\n", expr))
 				aExpr, err := expr.Analyse(tbl.Nest(sigma))
 				if err != nil {
 					yylex.Error(err.Error())
@@ -94,7 +94,7 @@ statement
 					yylex.Error("contradiction")
 				}
 			}
-			fmt.Println("qed")
+			result.WriteString(fmt.Sprintf("qed\n"))
 		}
 	}
 	| axiom tkFunc tkIdentifier function	{

@@ -17,4 +17,6 @@ func TestParsing(t *testing.T) {
 		t.Fatal("returned", ret)
 	}
 	fmt.Printf("sigma: %v\n", sigma)
+	fmt.Println(result.String())
+	fmt.Println(errors.String())
 }

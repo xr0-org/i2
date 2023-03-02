@@ -17,6 +17,12 @@
 /* injectivity: If succ(x) == succ(y) then x == y. */ 
 @tmpl injectivity(x nat, y nat) { eq(succ(x), succ(y)) ==> eq(x, y) };
 
+/* induction: The axiom of induction. */
+@tmpl induction(y func(nat) bool) {
+	y(1) && (x nat) { y(x) ==> y(succ(x)) }
+==> 	(x nat) y(x)
+};
+
 tmpl thm1(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
 	!( !eq(a, b) ==> !eq(succ(a), succ(b)) )
 ===	!eq(a, b) && eq(succ(a), succ(b))
@@ -27,4 +33,23 @@ tmpl thm1(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
 	eq(succ(a), succ(b))
 ==> { injectivity(a, b) }
 	eq(a, b)
+};
+
+tmpl thm2(x nat) { !eq(succ(x), x) } {
+	&{
+		/* base case */
+		this(1)
+	<== { succ_notone(1) }
+		1 nat
+	=== { one() }; /* implied by auto zero; left here to show syntax */
+
+		/* inductive case */
+		(x nat) this(x)
+	==> { thm1(succ(x), x) }
+		(x nat) this(succ(x));
+	}
+===
+	this(1) && (x nat) { this(x) ==> this(succ(x)) }
+==> { induction(this) }
+	this(x);
 };

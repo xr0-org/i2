@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"unicode"
 )
@@ -54,16 +53,16 @@ const (
 
 func (l *lexer) Error(err string) {
 	info := getlineinfo(l.input, l.pos)
-	fmt.Fprint(os.Stderr, colourRed)
-	fmt.Fprintf(os.Stderr, ">>> %s\n    ", string(info.lines[info.n]))
-	fmt.Fprint(os.Stderr, colourOff)
+	//fmt.Fprint(os.Stderr, colourRed)
+	errors.WriteString(fmt.Sprintf(">>> %s\n    ", string(info.lines[info.n])))
+	//fmt.Fprint(os.Stderr, colourOff)
 	for i := 0; i < info.linepos; i++ {
-		fmt.Fprintf(os.Stderr, " ")
+		errors.WriteString(fmt.Sprintf(" "))
 	}
-	fmt.Fprintf(os.Stderr, "^\n")
-	fmt.Fprintf(os.Stderr, "error: %s at position %d on line %d\n",
-		err, info.linepos, info.n+1)
-	os.Exit(1)
+	errors.WriteString(fmt.Sprintf("^\n"))
+	errors.WriteString(fmt.Sprintf("error: %s at position %d on line %d\n",
+		err, info.linepos, info.n+1))
+	//os.Exit(1)
 }
 
 func (l *lexer) Lex(lval *yySymType) int {
