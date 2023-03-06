@@ -1,0 +1,18 @@
+@func eq(x any, y any) bool;
+
+@func sq(x num) num;
+
+@func times(m int, n int) int;
+
+term 2 num;
+
+@func rat(p num) bool;
+
+@tmpl rat_expand(p num) { rat(p) ==> !(m int, n int) { !eq(p, times(m, n)) } };
+
+tmpl irrat_sqrt2(p num) { eq(sq(p), 2) ==> !rat(p) } {
+expand:
+	rat(p)
+==>	{ rat_expand(p) }
+	!(m int, n int) { !eq(p, times(m, n)) };
+};

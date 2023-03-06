@@ -3,12 +3,17 @@
 
 	import (
 		"fmt"
+		"strings"
 
 		"git.sr.ht/~lbnz/i2/internal/symbol"
-		"git.sr.ht/~lbnz/i2/internal/truth"
 	)
 
-	var sigma = symbol.Table{"1": symbol.Any}
+	var sigma = symbol.Table{}
+
+	type labelledJust struct {
+		expr symbol.Expr
+		label string
+	}
 %}
 
 %union{
@@ -16,6 +21,7 @@
 	sarr		[]string
 	n		int
 	b		bool
+	proof		[]labelledJust
 
 	sym_op		symbol.Operator
 	sym_tmpl	symbol.Template
@@ -31,6 +37,7 @@
 
 %type <b> axiom
 %type <s> value type
+%type <sarr> value_list
 
 %type <sym_op> connective 
 %type <sym_tmpl> template
@@ -39,6 +46,7 @@
 %type <sym_paramarr> type_assertion_list
 
 %type <sym_expr> expression logical_and_expression logical_or_expression negated_expression simple_expression constant_expression
+%type <proof> expression_list
 
 %type <sym_exprarr> argument_list
 %type <sym_pfexpr> postfix_expresion
@@ -51,7 +59,7 @@
 %token <s> tkLt tkGt tkEq tkNe tkAnd tkOr tkEqv tkImpl tkFllw
 
 /* keywords */ 
-%token <s> tkTmpl tkFunc tkThis
+%token <s> tkTmpl tkFunc tkTerm
 
 %%
 statement_list
@@ -67,39 +75,53 @@ axiom
 statement
 	: axiom tkTmpl tkIdentifier template	{
 		$4.IsAxiom = $1
+		$4.Name = $3
 		sigma[$3] = $4
-
 		tbl, err := $4.Table()
 		if err != nil {
 			yylex.Error(err.Error())
 		}
-		aExpr, err := $4.E.Analyse(tbl.Nest(sigma))
-		if err != nil {
-			yylex.Error(err.Error())
-		}
-		result.WriteString(fmt.Sprintf("tmpl %s %v\n", $3, aExpr))
+		fmt.Printf("%s: %s\n", $3, $4)
 		for _, prf := range $4.Proofs {
-			result.WriteString(fmt.Sprintf("proof:\n"))
-			for _, expr := range prf {
-				result.WriteString(fmt.Sprintf("\t%s\n", expr))
-				aExpr, err := expr.Analyse(tbl.Nest(sigma))
-				if err != nil {
-					yylex.Error(err.Error())
+			contextTbl := tbl.Nest(sigma)
+			proven := []string{}
+			for _, preprf := range prf.Preamble {
+				if err := sound(
+					preprf.Chain(), 
+					contextTbl,
+				); err != nil {
+					yylex.Error(
+						fmt.Sprintf(
+						"preamble error: %s", err),
+					)
 				}
-				outcome, err := truth.Decide(aExpr.P)
+				burden, err := preprf.Burden()
 				if err != nil {
-					yylex.Error(err.Error())
+					yylex.Error(
+						fmt.Sprintf(
+						"burden error: %s", err),
+					)
 				}
-				if !outcome {
-					yylex.Error("contradiction")
+				if l := preprf.Label(); l != "" {
+					contextTbl[l] = symbol.LocalProof{burden}
+					proven = append(proven, l)
 				}
 			}
-			result.WriteString(fmt.Sprintf("qed\n"))
+			err := examineProof(
+				$4.E, prf.Proof.Chain(), proven, contextTbl,
+			)
+			if err != nil {
+				yylex.Error(err.Error())
+			}
 		}
 	}
 	| axiom tkFunc tkIdentifier function	{
 		$4.IsAxiom = $1
+		$4.Name = $3
 		sigma[$3] = $4
+	}
+	| tkTerm value type {
+		sigma[$2] = symbol.Type($3)
 	}
 	;
 
@@ -108,25 +130,43 @@ template
 		$$ = symbol.Template{
 			Params:	$2,
 			E:	$5,
-			Proofs:	[]symbol.RelationChain{},
+			Proofs:	[]symbol.ProofChain{},
 		}
 	}
-	| '(' ')' '{' expression '}'			{
+	| '(' ')' '{' expression '}'				{
 		$$ = symbol.Template{
 			Params:	[]symbol.Parameter{},
 			E:	$4,
-			Proofs:	[]symbol.RelationChain{},
+			Proofs:	[]symbol.ProofChain{},
 		}
 	}
-	| template '{' expression '}'			{
-		prf, ok := $3.(symbol.JustifiableBinaryOpExpr)
+	| template '{' expression_list '}'			{
+		preambleLen := len($3) - 1
+		if preambleLen < 0 {
+			yylex.Error("empty proof")
+		}
+		preamble := make([]symbol.Proof, preambleLen)
+		for i, just := range $3[:preambleLen] {
+			var prf symbol.Proof
+			if λ, ok := just.expr.(symbol.LambdaExpr); ok {
+				prf = symbol.LambdaProof{λ, just.label}
+			} else if expr, ok := just.expr.(symbol.JustifiableBinaryOpExpr); ok {
+				prf = symbol.LabelledChain{
+					expr.Quantise(), just.label,
+				}
+			}
+			preamble[i] = prf
+		}
+		proper, ok := $3[len($3)-1].expr.(symbol.JustifiableBinaryOpExpr)
 		if !ok {
 			yylex.Error("non bop proof")
 		}
 		$$ = symbol.Template{
 			Params:	$$.Params,
 			E: 	$$.E,
-			Proofs:	append($$.Proofs, prf.Quantise()),
+			Proofs:	append($$.Proofs, symbol.ProofChain{
+				preamble, proper.Quantise(),
+			}),
 		}
 	}
 	;
@@ -149,28 +189,42 @@ type_assertion_list
 		{ $$ = []symbol.Parameter{symbol.Parameter{Name: $1, Type: symbol.Type($2)}}}
 	;
 
+type
+	: tkIdentifier				{ $$ = $1 }
+	| tkFunc '(' value_list ')' type	{ 
+		$$ = fmt.Sprintf("func(%s) %s", strings.Join($3, ", "), $5)
+	}
+	;
+
+value_list
+	: value_list ',' value		{ $$ = append($1, $3) }
+	| value				{ $$ = []string{$1} }
+	;
+
 value
 	: tkConstant		{ $$ = $1 }
 	| tkIdentifier		{ $$ = $1 }
 	;
 
-type
-	: tkIdentifier		{ $$ = $1 }
-	| tkFunc function	{ $$ = "func" }
-	;
-
 expression
-	: expression connective justification logical_or_expression { 
+	: expression connective justification expression { 
 		$$ = symbol.JustifiableBinaryOpExpr{
 			BinaryOpExpr:	symbol.BinaryOpExpr{Op: $2, E1: $1, E2: $4},
 			Just: 		$3,
 		}
 	}
-	| type_assertion_list	{
-		// TODO reconcile this with Expr
-		$$ = symbol.ConstantExpr(false)
-	}
+	| type_assertion_list	
+		{ $$ = symbol.ConstantExpr(false) }
 	| logical_or_expression 
+	;
+
+expression_list
+	: expression_list expression_list
+		{ $$ = append($1, $2...) }
+	| tkIdentifier ':' expression ';' 
+		{ $$ = []labelledJust{labelledJust{$3, $1}} }
+	| expression ';' 
+		{ $$ = []labelledJust{labelledJust{$1, ""}} }
 	;
 
 justification
@@ -207,10 +261,12 @@ constant_expression
 	: tkTrue			{ $$ = symbol.ConstantExpr(true) }
 	| tkFalse			{ $$ = symbol.ConstantExpr(false) }
 	| '(' expression ')'		{ $$ = symbol.BracketedExpr{$2} }
+	| '(' type_assertion_list ')' '{' expression '}' { 
+		$$ = symbol.LambdaExpr{$2, $5} 
+	}
 	| simple_expression
 	;
 
-/* `tkThis` disabled for now */
 simple_expression
 	: tkIdentifier			{ $$ = symbol.SimpleExpr($1) }
 	| tkConstant			{ $$ = symbol.SimpleExpr($1) }

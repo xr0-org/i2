@@ -4,8 +4,8 @@
 
 /* Peano axioms */
 
-/* one: 1 is a natural number. */
-@tmpl one() { 1 nat };
+/* 1 is a natural number. */
+term 1 nat;
 
 /* succ: For each x there exists exactly one natural number, called the
  * successor of x, which will be denoted by succ(x). */
@@ -18,9 +18,14 @@
 @tmpl injectivity(x nat, y nat) { eq(succ(x), succ(y)) ==> eq(x, y) };
 
 /* induction: The axiom of induction. */
-@tmpl induction(y func(nat) bool) {
-	y(1) && (x nat) { y(x) ==> y(succ(x)) }
-==> 	(x nat) y(x)
+@tmpl induction(P func(nat) bool) {
+	P(1) && (x nat) { P(x) ==> P(succ(x)) }
+==> 	(x nat) { P(x) }
+};
+
+@tmpl application(P func(nat) bool, w nat) {
+	(x nat) { P(x) }
+==>	P(w)
 };
 
 tmpl thm1(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
@@ -28,28 +33,29 @@ tmpl thm1(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
 ===	!eq(a, b) && eq(succ(a), succ(b))
 ==> { injectivity(a, b) }
 	eq(a, b) && !eq(a, b)
-===	false
+===	false;
 } {
 	eq(succ(a), succ(b))
 ==> { injectivity(a, b) }
-	eq(a, b)
+	eq(a, b);
 };
 
-tmpl thm2(x nat) { !eq(succ(x), x) } {
-	&{
-		/* base case */
-		this(1)
-	<== { succ_notone(1) }
-		1 nat
-	=== { one() }; /* implied by auto zero; left here to show syntax */
 
-		/* inductive case */
-		(x nat) this(x)
+tmpl thm2(x nat) { !eq(succ(x), x) } {
+base:	this(1)
+<== { succ_notone(1) }
+	true;
+
+induct: (x nat) {
+		this(x)
 	==> { thm1(succ(x), x) }
-		(x nat) this(succ(x));
-	}
-===
-	this(1) && (x nat) { this(x) ==> this(succ(x)) }
+		this(succ(x))
+	};
+
+	base && induct
+===	this(1) && (x nat) { this(x) ==> this(succ(x)) }
 ==> { induction(this) }
+	(x nat) { this(x) }
+==> { application(this, x) }	
 	this(x);
 };

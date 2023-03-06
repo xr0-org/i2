@@ -1,0 +1,47 @@
+@func eq(x any, y any) bool;
+
+@func set(A any) bool;
+
+@func in(x any, A set) bool;
+
+/* extensionality: Axiom of extension. Two sets are equal if and only if they
+ * have the same elements. */
+@tmpl extension(A set, B set) {
+	eq(A, B) === (x any) { in(x, A) === in(x, B) } 
+};
+
+/* specification: Axiom of specification. To every set A and to every condition
+ * S(x) there corresponds a set B whose elements are exactly those elements x of
+ * A for which S(x) holds. */
+@tmpl specification(A set, S func(any) bool) {
+	[B set] { (x any) {in(x, B) === in(x, A) && S(x)} }
+};
+
+/* existence: There exists a set. */
+@tmpl existence() { [A any] A set };
+
+/* pairing: Axiom of pairing. For any two sets there exists a set that they both
+ * belong to. */
+@tmpl pairing(A set, B set) { [C set] {in(A, C) && in(B, C)} };
+
+/* unions: Axiom of unions. For every collection of sets there exists a set that
+ * contains all the elements that belong to at least one set of the given
+ * collection. */
+@tmpl unions(C set) { /* for every collection C of sets */
+	[U set] { /* there exists a set U such that */
+		(x any) { /* if x is in X for some X in C, then x is in U. */
+			[X set] { in(x, X) && in(X, C) } ==> in(x, U) 
+		} 
+	}
+};
+
+/* subset: A ⊆ B. */
+@func subset(A set, B set) { (x any) { in(x, A) ==> in(x, B) } };
+
+/* powers: Axiom of powers. For each set there exists a collection of sets that
+ * contains among its elements all the subsets of the given set. */
+@tmpl powers(A set) {
+	[C set] {
+		(a set) { subset(a, A) ==> in(a, C) }
+	}
+};

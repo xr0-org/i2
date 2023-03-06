@@ -23,11 +23,7 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("failed to read file: %s\n", err)
 		}
-		result, err := parser.Verify(string(file))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
-		}
-		fmt.Fprintf(os.Stdout, "%s", result)
+		parser.Verify(string(file))
 	},
 }
 

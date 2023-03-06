@@ -22,9 +22,9 @@ tmpl thm1(a nat, b nat) { !eq(a, b) ==> !eq(succ(a), succ(b)) } {
 ===	!eq(a, b) && eq(succ(a), succ(b))
 ==> { injectivity(a, b) }
 	eq(a, b) && !eq(a, b)
-===	false
+===	false;
 } {
 	eq(succ(a), succ(b))
 ==> { injectivity(a, b) }
-	eq(a, b)
+	eq(a, b);
 };

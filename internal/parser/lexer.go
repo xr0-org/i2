@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"unicode"
 )
@@ -54,15 +55,15 @@ const (
 func (l *lexer) Error(err string) {
 	info := getlineinfo(l.input, l.pos)
 	//fmt.Fprint(os.Stderr, colourRed)
-	errors.WriteString(fmt.Sprintf(">>> %s\n    ", string(info.lines[info.n])))
+	fmt.Fprintf(os.Stderr, ">>> %s\n    ", string(info.lines[info.n]))
 	//fmt.Fprint(os.Stderr, colourOff)
 	for i := 0; i < info.linepos; i++ {
-		errors.WriteString(fmt.Sprintf(" "))
+		fmt.Fprintf(os.Stderr, " ")
 	}
-	errors.WriteString(fmt.Sprintf("^\n"))
-	errors.WriteString(fmt.Sprintf("error: %s at position %d on line %d\n",
-		err, info.linepos, info.n+1))
-	//os.Exit(1)
+	fmt.Fprintf(os.Stderr, "^\n")
+	fmt.Fprintf(os.Stderr, "error: %s at position %d on line %d\n",
+		err, info.linepos, info.n+1)
+	os.Exit(1)
 }
 
 func (l *lexer) Lex(lval *yySymType) int {
@@ -143,10 +144,12 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 				case '>':
 					return &token{tkImpl, 3}, nil
 				}
+				break
 			case tkLt:
 				if d == '=' {
 					return &token{tkFllw, 3}, nil
 				}
+				break
 			}
 		}
 		d := input[1]
@@ -179,7 +182,7 @@ func lexPunct(input []rune, lval *yySymType) (*token, error) {
 var keyword = map[string]int{
 	"tmpl":  tkTmpl,
 	"func":  tkFunc,
-	"this":  tkThis,
+	"term":  tkTerm,
 	"true":  tkTrue,
 	"false": tkFalse,
 }

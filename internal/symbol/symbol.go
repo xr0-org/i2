@@ -8,24 +8,24 @@ import (
 )
 
 var (
-	ErrNoTable = errors.New("symbol has no table")
+	errNoTable = errors.New("symbol has no table")
 
 	errIsInvocationLengthMismatch    = "length of parameters does not match parameters in function abstract"
-	errIsInvocationParameterMismatch = "parameter %s is of type %s but function definition requires type %s in position %d"
+	errIsInvocationParameterMismatch = "parameter `%s' is of type `%s' but %s `%s' requires type `%s' in position %d"
 
-	errFunctionOrTemplateNotDefined = "function/template: %s not defined"
-	errVariableNotDefined           = "variable %s not defined"
-	errNonSimpleExpr                = "%s is not a primary expression"
-	errNonInvocableInvoked          = "%s cannot be invoked"
-	errOpOnNonBoolExpr              = "op %s cannot be applied to expr %s of type %s"
-	errInvalidBinaryOp              = "op %s is an invalid binary op"
+	errFunctionOrTemplateNotDefined = "function/template: `%s' not defined"
+	errVariableNotDefined           = "variable `%s' not defined"
+	errNonSimpleExpr                = "`%s' is not a primary expression"
+	errNonInvocableInvoked          = "`%s' cannot be invoked"
+	errOpOnNonBoolExpr              = "op `%s' cannot be applied to expr `%s' of type `%s`"
+	errInvalidBinaryOp              = "op `%s' is an invalid binary op"
 )
 
-type Symbol interface {
+type Scope interface {
 	Table() (Table, error)
 }
 
-type Table map[string]Symbol
+type Table map[string]Scope
 
 func (T Table) Nest(Parent Table) Table {
 	newT := Table{}
@@ -41,6 +41,7 @@ func (T Table) Nest(Parent Table) Table {
 type Function struct {
 	IsAxiom bool
 	Sig     FunctionSignature
+	Name    string
 }
 
 func (f Function) isPredicate() bool {
@@ -48,7 +49,7 @@ func (f Function) isPredicate() bool {
 }
 
 func (f Function) Table() (Table, error) {
-	T := Table{}
+	T := Table{"this": f}
 	for _, p := range f.Sig.Params {
 		T[p.Name] = p.Type
 	}
@@ -80,7 +81,7 @@ func (f Function) IsInvocation(params []Parameter) error {
 		if !(fp.Type == Any || fp.Type == p.Type) {
 			return fmt.Errorf(
 				errIsInvocationParameterMismatch,
-				p.Name, p.Type, fp.Type, i,
+				p.Name, p.Type, "function", f.Name, fp.Type, i,
 			)
 		}
 	}
@@ -95,22 +96,27 @@ type Template struct {
 	IsAxiom bool
 	Params  []Parameter
 	E       Expr
-	Proofs  []RelationChain
+	Proofs  []ProofChain
+	Name    string
 }
 
 func (t Template) instantiate(args []Expr, tbl Table) (truth.Proposition, error) {
-	m := map[Expr]Expr{}
+	m := map[string]Expr{}
 	// by assumption the type checking for args & the template has already
 	// been done, so we can map directly
 	for i, param := range t.Params {
-		m[SimpleExpr(param.Name)] = args[i]
+		m[param.Name] = args[i]
 	}
 	aExpr, err := t.E.replace(m).Analyse(tbl)
-	return aExpr.P, err
+	if err != nil {
+		fmt.Println("replaced:", t.E.replace(m))
+		return nil, err
+	}
+	return aExpr.P, nil
 }
 
 func (t Template) Table() (Table, error) {
-	T := Table{}
+	T := Table{"this": t}
 	for _, p := range t.Params {
 		T[p.Name] = p.Type
 	}
@@ -126,7 +132,7 @@ func (t Template) IsInvocation(params []Parameter) error {
 		if !(tp.Type == Any || tp.Type == p.Type) {
 			return fmt.Errorf(
 				errIsInvocationParameterMismatch,
-				p.Name, p.Type, tp.Type, i,
+				p.Name, p.Type, "template", t.Name, tp.Type, i,
 			)
 		}
 	}
@@ -134,7 +140,7 @@ func (t Template) IsInvocation(params []Parameter) error {
 }
 
 func (t Template) String() string {
-	return fmt.Sprintf("%stmpl(%s)", optionalat(t.IsAxiom), t.Params)
+	return fmt.Sprintf("%stmpl %s %s", optionalat(t.IsAxiom), t.Params, t.E)
 }
 
 type FunctionSignature struct {
@@ -143,7 +149,7 @@ type FunctionSignature struct {
 }
 
 func (f FunctionSignature) Table() (Table, error) {
-	return nil, ErrNoTable
+	return nil, errNoTable
 }
 
 type Type string
@@ -154,5 +160,13 @@ const (
 )
 
 func (p Type) Table() (Table, error) {
-	return nil, ErrNoTable
+	return nil, errNoTable
+}
+
+type LocalProof struct {
+	Expr Expr
+}
+
+func (lp LocalProof) Table() (Table, error) {
+	return nil, errNoTable
 }

@@ -1,0 +1,5 @@
+tmpl thm1(m nat, n nat) { !eq(m, n) ==> !eq(succ(m), succ(n)) } {
+	eq(succ(m), succ(n))
+==> { injectivity(m, n) }
+	eq(m, n);
+};
